@@ -29,9 +29,9 @@ class Note {
     required this.createdAt,
   });
 
-  factory Note.fromJson(Map<String, dynamic> json) {
+ factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      // ?? '' 的意思是：如果数据库里是空的，就给它一个空字符串，防止崩溃
+      // ?? '' 的意思就是：如果数据库拿回来的是空(Null)，就强行给它个空字符串，不准报错
       id: (json['id'] ?? '').toString(),
       title: (json['title'] ?? '无标题').toString(),
       content: (json['content'] ?? '').toString(),
@@ -40,7 +40,6 @@ class Note {
           : DateTime.now(),
     );
   }
-}
 class MinimalistNotesApp extends StatelessWidget {
   const MinimalistNotesApp({super.key});
 
