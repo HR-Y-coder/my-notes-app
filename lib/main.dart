@@ -106,7 +106,8 @@ class _NoteListScreenState extends State<NoteListScreen> {
       
       if (query.isNotEmpty) {
         // 在 $query 前面加个反斜杠 \ 转义，或者确保它引用的变量存在
-request = request.or('title.ilike.%${query}%,content.ilike.%${query}%');
+// 使用 filter 方法或者确保 or 语法符合你安装的插件版本
+request = request.filter('or', 'title.ilike.%$query%,content.ilike.%$query%');
       }
 
       final data = await request;
