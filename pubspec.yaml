@@ -1,0 +1,4 @@
+dependencies:
+  flutter:
+    sdk: flutter
+  supabase_flutter: ^2.3.0
