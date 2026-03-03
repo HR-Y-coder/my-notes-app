@@ -22,23 +22,23 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Reconstruct Project Environment
+      - name: Force Reconstruct Project
         run: |
-          # 1. 把你的核心代码暂时挪走
-          mkdir temp_code
-          cp -r lib temp_code/
-          cp pubspec.yaml temp_code/
+          # 1. 确保代码不会丢：把现有的 lib 和配置拷贝到安全的地方
+          mkdir -p ../safe_backup
+          cp -r lib ../safe_backup/
+          cp pubspec.yaml ../safe_backup/
           
-          # 2. 强力清理并重新生成完整的 Flutter 项目壳子
-          rm -rf lib pubspec.yaml
+          # 2. 清理当前目录，重新生成干净的 Flutter 结构（包含 android 目录）
+          rm -rf *
           flutter create --project-name my_notes_app .
           
-          # 3. 把你的代码换回去，覆盖掉默认的模板
+          # 3. 把核心代码换回来
           rm -rf lib pubspec.yaml
-          cp -r temp_code/lib .
-          cp temp_code/pubspec.yaml .
+          cp -r ../safe_backup/lib .
+          cp ../safe_backup/pubspec.yaml .
           
-          # 4. 关键：注入 Android 联网权限 (解决你手机上的 SocketException)
+          # 4. 关键：注入 Android 联网权限，解决 SocketException
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
