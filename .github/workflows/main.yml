@@ -1,52 +1,43 @@
-name: Flutter Build APK
-on: [push]
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-          
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
 
-      # 核心步骤：如果发现只有代码没骨架，服务器会自动造一个底座
-     # 核心步骤：只补齐缺失的安卓/iOS底座，不破坏你已有的 lib 文件夹
-      - name: Create Project Scaffold
+      - name: Create Android Project Shell
         run: |
-          mkdir temp_app
-          flutter create --project-name my_notes_app ./temp_app
+          # 1. 核心操作：如果缺失 android 目录，就地创建一个新项目
+          flutter create --project-name my_notes_app . --force
           
-          # 1. 只搬运打包必须的 Android、iOS 和 Web 骨架（这些是你仓库里没有的）
-          cp -r temp_app/android .
-          cp -r temp_app/ios .
-          cp -r temp_app/web .
-          
-          # 2. 处理代码文件：如果 main.dart 还在根目录，就把它移进 lib
-          if [ -f "main.dart" ]; then
-            mkdir -p lib
-            mv main.dart lib/main.dart
-          fi
-          
-          # 3. 清理临时工
-          rm -rf temp_app
+          # 2. 注入联网权限 (这一步帮你自动改好 AndroidManifest)
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
         run: flutter pub get
-        
+
       - name: Build APK
         run: flutter build apk --release --split-per-abi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: note-app-apk
-          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+          name: release-apk
+          path: build/app/outputs/flutter-apk/*.apk
