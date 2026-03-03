@@ -99,18 +99,20 @@ class _NoteListScreenState extends State<NoteListScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchNotes([String query = '']) async {
+ Future<void> _fetchNotes([String query = '']) async {
     setState(() => _isLoading = true);
     try {
-      var request = supabase.from('notes').select().order('created_at', ascending: false);
+      // 1. 先建立基础查询
+      var request = supabase.from('notes').select();
       
+      // 2. 如果有搜索词，先进行 or 筛选
       if (query.isNotEmpty) {
-        // 在 $query 前面加个反斜杠 \ 转义，或者确保它引用的变量存在
-// 使用 filter 方法或者确保 or 语法符合你安装的插件版本
-request = request.filter('or', 'title.ilike.%$query%,content.ilike.%$query%');
+        request = request.or('title.ilike.%$query%,content.ilike.%$query%');
       }
 
-      final data = await request;
+      // 3. 最后再进行排序并执行请求 (注意：order 要放在最后)
+      final data = await request.order('created_at', ascending: false);
+
       setState(() {
         _notes = (data as List).map((json) => Note.fromJson(json)).toList();
       });
