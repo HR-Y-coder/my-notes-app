@@ -31,7 +31,7 @@ class Note {
 
   factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      // 使用 ?? 语法：如果是 null，就给它一个空字符串 '' 或默认文字
+      // ?? '' 的意思是：如果数据库里是空的，就给它一个空字符串，防止崩溃
       id: (json['id'] ?? '').toString(),
       title: (json['title'] ?? '无标题').toString(),
       content: (json['content'] ?? '').toString(),
@@ -41,7 +41,6 @@ class Note {
     );
   }
 }
-
 class MinimalistNotesApp extends StatelessWidget {
   const MinimalistNotesApp({super.key});
 
