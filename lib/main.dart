@@ -105,7 +105,8 @@ class _NoteListScreenState extends State<NoteListScreen> {
       var request = supabase.from('notes').select().order('created_at', ascending: false);
       
       if (query.isNotEmpty) {
-        request = request.or('title.ilike.%$query%,content.ilike.%$query%');
+        // 在 $query 前面加个反斜杠 \ 转义，或者确保它引用的变量存在
+request = request.or('title.ilike.%${query}%,content.ilike.%${query}%');
       }
 
       final data = await request;
