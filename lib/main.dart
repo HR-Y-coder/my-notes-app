@@ -16,12 +16,12 @@ Future<void> main() async {
 
 final supabase = Supabase.instance.client;
 
-// --- 模型类修复 ---
+// --- 模型类 (Model) ---
 class Note {
   final String id;
   final String title;
   final String content;
-  final String category; // 之前漏掉了这个属性
+  final String category;
   final DateTime createdAt;
 
   Note({
@@ -34,19 +34,19 @@ class Note {
 
   factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      // ?? '' 的意思：如果是 null 就给空字符串，绝不准报错！
+      // 使用 ?? 确保 Null 安全，防止 type 'Null' is not a subtype of type 'String' 错误
       id: (json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       content: (json['content'] ?? '').toString(),
-      category: (json['category'] ?? 'Other').toString(), // 确保 category 也不为 null
+      category: (json['category'] ?? 'Other').toString(),
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at']) 
           : DateTime.now(),
     );
   }
-} // 之前这里漏掉了闭合大括号
+}
 
-// --- 主应用 ---
+// --- 主应用 (Main App) ---
 class MinimalistNotesApp extends StatelessWidget {
   const MinimalistNotesApp({super.key});
 
@@ -79,7 +79,7 @@ class MinimalistNotesApp extends StatelessWidget {
   }
 }
 
-// --- 列表页面 ---
+// --- 列表页面 (List Screen) ---
 class NoteListScreen extends StatefulWidget {
   const NoteListScreen({super.key});
 
@@ -105,36 +105,46 @@ class _NoteListScreenState extends State<NoteListScreen> {
     super.dispose();
   }
 
+  // 修复了查询逻辑：确保先构建完所有过滤条件再 await 执行
   Future<void> _fetchNotes([String query = '']) async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
+    
     try {
-      var request = supabase.from('notes').select();
+      // 1. 开始构建查询
+      var queryBuilder = supabase.from('notes').select();
       
+      // 2. 如果有搜索关键词，链式添加 or 过滤
       if (query.isNotEmpty) {
-        // 使用 Supabase 推荐的 ilike 模糊查询
-        request = request.or('title.ilike.%$query%,content.ilike.%$query%');
+        queryBuilder = queryBuilder.or('title.ilike.%$query%,content.ilike.%$query%');
       }
 
-      final data = await request.order('created_at', ascending: false);
+      // 3. 添加排序并最终执行查询 (await)
+      final List<dynamic> data = await queryBuilder.order('created_at', ascending: false);
 
-      setState(() {
-        _notes = (data as List).map((json) => Note.fromJson(json)).toList();
-      });
+      if (mounted) {
+        setState(() {
+          _notes = data.map((json) => Note.fromJson(json as Map<String, dynamic>)).toList();
+        });
+      }
     } catch (e) {
+      debugPrint('Fetch Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('加载失败: $e')),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   void _onSearchChanged(String query) {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      setState(() => _searchQuery = query);
+      _searchQuery = query;
       _fetchNotes(query);
     });
   }
@@ -148,11 +158,12 @@ class _NoteListScreenState extends State<NoteListScreen> {
       }).select().single();
 
       final newNote = Note.fromJson(data);
-      setState(() {
-        _notes.insert(0, newNote);
-      });
-
+      
       if (mounted) {
+        setState(() {
+          _notes.insert(0, newNote);
+        });
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -166,6 +177,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
   }
 
   Future<void> _deleteNote(String id) async {
+    // 乐观更新 UI
     setState(() {
       _notes.removeWhere((note) => note.id == id);
     });
@@ -174,7 +186,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
       await supabase.from('notes').delete().eq('id', id);
     } catch (e) {
       debugPrint('Error deleting note: $e');
-      _fetchNotes(_searchQuery);
+      _fetchNotes(_searchQuery); // 出错时回滚刷新
     }
   }
 
@@ -182,7 +194,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
     final now = DateTime.now();
     final difference = now.difference(date);
     if (difference.inDays == 0) {
-      return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
     return '${date.month}/${date.day}';
   }
@@ -211,6 +223,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
       ),
       body: Column(
         children: [
+          // 搜索栏
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TextField(
@@ -228,6 +241,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
               ),
             ),
           ),
+          // 列表区域
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Colors.yellow))
@@ -251,9 +265,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
                               color: Colors.red,
                               child: const Icon(Icons.delete, color: Colors.white),
                             ),
-                            onDismissed: (direction) {
-                              _deleteNote(note.id);
-                            },
+                            onDismissed: (_) => _deleteNote(note.id),
                             child: ListTile(
                               onTap: () {
                                 Navigator.push(
@@ -315,7 +327,7 @@ class _NoteListScreenState extends State<NoteListScreen> {
   }
 }
 
-// --- 详情页面 ---
+// --- 详情页面 (Detail Screen) ---
 class NoteDetailScreen extends StatefulWidget {
   final Note note;
 
@@ -396,6 +408,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 分类选择器
               Row(
                 children: ['Work', 'Life', 'Other'].map((cat) {
                   final isSelected = _category == cat;
@@ -422,6 +435,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 }).toList(),
               ),
               const SizedBox(height: 16),
+              // 标题输入
               TextField(
                 controller: _titleController,
                 onChanged: (_) => _onNoteChanged(),
@@ -436,6 +450,7 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   hintStyle: TextStyle(color: Colors.black26),
                 ),
               ),
+              // 内容输入
               Expanded(
                 child: TextField(
                   controller: _contentController,
