@@ -18,26 +18,26 @@ final supabase = Supabase.instance.client;
 
 class Note {
   final String id;
-  String title;
-  String content;
-  String category;
+  final String title;
+  final String content;
   final DateTime createdAt;
 
   Note({
     required this.id,
     required this.title,
     required this.content,
-    required this.category,
     required this.createdAt,
   });
 
   factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      id: json['id'],
-      title: json['title'] ?? '',
-      content: json['content'] ?? '',
-      category: json['category'] ?? 'Other',
-      createdAt: DateTime.parse(json['created_at']),
+      // 使用 ?? '' 的意思是：如果数据库里这个字段是 Null，就给它一个空字符串，防止崩溃
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? '无标题').toString(),
+      content: (json['content'] ?? '').toString(),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
+          : DateTime.now(),
     );
   }
 }
