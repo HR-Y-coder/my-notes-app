@@ -1,5 +1,5 @@
 name: Flutter Build APK
-on: [push] # 以后你每次改代码 push，它都会自动帮你打个新包
+on: [push]
 
 jobs:
   build:
@@ -17,7 +17,24 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
-          
+
+      # 核心步骤：如果发现只有代码没骨架，服务器会自动造一个底座
+      - name: Create Project Scaffold
+        run: |
+          mkdir temp_app
+          flutter create --project-name my_notes_app ./temp_app
+          # 检查你的 main.dart 是在根目录还是 lib 里，并覆盖到新项目中
+          if [ -f "lib/main.dart" ]; then
+            cp lib/main.dart temp_app/lib/main.dart
+          else
+            cp main.dart temp_app/lib/main.dart
+          fi
+          cp pubspec.yaml temp_app/pubspec.yaml
+          # 将生成的全套 Android/iOS 骨架移回根目录
+          mv temp_app/* .
+          mv temp_app/.[!.]* .
+          rm -rf temp_app
+
       - name: Install dependencies
         run: flutter pub get
         
