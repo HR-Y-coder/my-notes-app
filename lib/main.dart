@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // TODO: Replace with your actual Supabase credentials
+  // 初始化 Supabase
   await Supabase.initialize(
     url: 'https://zivvlwjsjcyujmrenekg.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppdnZsd2pzamN5dWptcmVuZWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1MDQ2OTEsImV4cCI6MjA4ODA4MDY5MX0.IRZ-Kd_emp5eKWv7dssYcOf4qT4Ev_qgch7GVzNbMkU',
@@ -16,30 +16,37 @@ Future<void> main() async {
 
 final supabase = Supabase.instance.client;
 
+// --- 模型类修复 ---
 class Note {
   final String id;
   final String title;
   final String content;
+  final String category; // 之前漏掉了这个属性
   final DateTime createdAt;
 
   Note({
     required this.id,
     required this.title,
     required this.content,
+    required this.category,
     required this.createdAt,
   });
 
-factory Note.fromJson(Map<String, dynamic> json) {
+  factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
       // ?? '' 的意思：如果是 null 就给空字符串，绝不准报错！
       id: (json['id'] ?? '').toString(),
-      title: (json['title'] ?? '无标题').toString(),
+      title: (json['title'] ?? '').toString(),
       content: (json['content'] ?? '').toString(),
+      category: (json['category'] ?? 'Other').toString(), // 确保 category 也不为 null
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at']) 
           : DateTime.now(),
     );
   }
+} // 之前这里漏掉了闭合大括号
+
+// --- 主应用 ---
 class MinimalistNotesApp extends StatelessWidget {
   const MinimalistNotesApp({super.key});
 
@@ -55,7 +62,7 @@ class MinimalistNotesApp extends StatelessWidget {
           seedColor: Colors.yellow,
           surface: const Color(0xFFF9F9F9),
         ),
-        fontFamily: 'Roboto', // Or any clean sans-serif font
+        fontFamily: 'Roboto',
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFFF9F9F9),
           elevation: 0,
@@ -72,6 +79,7 @@ class MinimalistNotesApp extends StatelessWidget {
   }
 }
 
+// --- 列表页面 ---
 class NoteListScreen extends StatefulWidget {
   const NoteListScreen({super.key});
 
@@ -97,20 +105,17 @@ class _NoteListScreenState extends State<NoteListScreen> {
     super.dispose();
   }
 
-Future<void> _fetchNotes([String query = '']) async {
+  Future<void> _fetchNotes([String query = '']) async {
     setState(() => _isLoading = true);
     try {
-      // 1. 先声明查询
-      final filterBuilder = supabase.from('notes').select();
+      var request = supabase.from('notes').select();
       
-      // 2. 如果有搜索词，直接调用 .or()
-      // 注意：这里不要用 .filter('or', ...)，直接用 .or()
       if (query.isNotEmpty) {
-        filterBuilder.or('title.ilike.%$query%,content.ilike.%$query%');
+        // 使用 Supabase 推荐的 ilike 模糊查询
+        request = request.or('title.ilike.%$query%,content.ilike.%$query%');
       }
 
-      // 3. 最后排序并获取数据
-      final data = await filterBuilder.order('created_at', ascending: false);
+      final data = await request.order('created_at', ascending: false);
 
       setState(() {
         _notes = (data as List).map((json) => Note.fromJson(json)).toList();
@@ -153,7 +158,7 @@ Future<void> _fetchNotes([String query = '']) async {
           MaterialPageRoute(
             builder: (context) => NoteDetailScreen(note: newNote),
           ),
-        ).then((_) => _fetchNotes(_searchQuery)); // Refresh on return
+        ).then((_) => _fetchNotes(_searchQuery));
       }
     } catch (e) {
       debugPrint('Error creating note: $e');
@@ -161,7 +166,6 @@ Future<void> _fetchNotes([String query = '']) async {
   }
 
   Future<void> _deleteNote(String id) async {
-    // Optimistic UI update
     setState(() {
       _notes.removeWhere((note) => note.id == id);
     });
@@ -170,7 +174,7 @@ Future<void> _fetchNotes([String query = '']) async {
       await supabase.from('notes').delete().eq('id', id);
     } catch (e) {
       debugPrint('Error deleting note: $e');
-      _fetchNotes(_searchQuery); // Revert on error
+      _fetchNotes(_searchQuery);
     }
   }
 
@@ -207,7 +211,6 @@ Future<void> _fetchNotes([String query = '']) async {
       ),
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: TextField(
@@ -225,8 +228,6 @@ Future<void> _fetchNotes([String query = '']) async {
               ),
             ),
           ),
-          
-          // Notes List
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Colors.yellow))
@@ -314,6 +315,7 @@ Future<void> _fetchNotes([String query = '']) async {
   }
 }
 
+// --- 详情页面 ---
 class NoteDetailScreen extends StatefulWidget {
   final Note note;
 
@@ -348,7 +350,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
   void _onNoteChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     
-    // Debounce the Supabase update by 500ms
     _debounce = Timer(const Duration(milliseconds: 500), () async {
       try {
         await supabase.from('notes').update({
@@ -379,8 +380,12 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             onPressed: () async {
-              await supabase.from('notes').delete().eq('id', widget.note.id);
-              if (mounted) Navigator.pop(context);
+              try {
+                await supabase.from('notes').delete().eq('id', widget.note.id);
+                if (mounted) Navigator.pop(context);
+              } catch (e) {
+                debugPrint('Delete error: $e');
+              }
             },
           ),
         ],
@@ -391,7 +396,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Category Selector
               Row(
                 children: ['Work', 'Life', 'Other'].map((cat) {
                   final isSelected = _category == cat;
@@ -418,8 +422,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                 }).toList(),
               ),
               const SizedBox(height: 16),
-              
-              // Title Input
               TextField(
                 controller: _titleController,
                 onChanged: (_) => _onNoteChanged(),
@@ -434,8 +436,6 @@ class _NoteDetailScreenState extends State<NoteDetailScreen> {
                   hintStyle: TextStyle(color: Colors.black26),
                 ),
               ),
-              
-              // Content Input
               Expanded(
                 child: TextField(
                   controller: _contentController,
