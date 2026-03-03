@@ -19,20 +19,24 @@ jobs:
           flutter-version: '3.19.0'
 
       # 核心步骤：如果发现只有代码没骨架，服务器会自动造一个底座
+     # 核心步骤：只补齐缺失的安卓/iOS底座，不破坏你已有的 lib 文件夹
       - name: Create Project Scaffold
         run: |
           mkdir temp_app
           flutter create --project-name my_notes_app ./temp_app
-          # 检查你的 main.dart 是在根目录还是 lib 里，并覆盖到新项目中
-          if [ -f "lib/main.dart" ]; then
-            cp lib/main.dart temp_app/lib/main.dart
-          else
-            cp main.dart temp_app/lib/main.dart
+          
+          # 1. 只搬运打包必须的 Android、iOS 和 Web 骨架（这些是你仓库里没有的）
+          cp -r temp_app/android .
+          cp -r temp_app/ios .
+          cp -r temp_app/web .
+          
+          # 2. 处理代码文件：如果 main.dart 还在根目录，就把它移进 lib
+          if [ -f "main.dart" ]; then
+            mkdir -p lib
+            mv main.dart lib/main.dart
           fi
-          cp pubspec.yaml temp_app/pubspec.yaml
-          # 将生成的全套 Android/iOS 骨架移回根目录
-          mv temp_app/* .
-          mv temp_app/.[!.]* .
+          
+          # 3. 清理临时工
           rm -rf temp_app
 
       - name: Install dependencies
