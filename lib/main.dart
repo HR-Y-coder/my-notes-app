@@ -102,20 +102,22 @@ class _NoteListScreenState extends State<NoteListScreen> {
 Future<void> _fetchNotes([String query = '']) async {
     setState(() => _isLoading = true);
     try {
-      // 核心修正：使用 filter 方式，这在所有 Supabase 版本中都最稳妥
+      // 1. 初始化查询
       var request = supabase.from('notes').select();
       
+      // 2. 如果有搜索词，使用通用的 filter 语法
       if (query.isNotEmpty) {
-        // 修复 "or" 方法不存在的问题
         request = request.filter('or', '(title.ilike.%$query%,content.ilike.%$query%)');
       }
 
+      // 3. 排序并执行
       final data = await request.order('created_at', ascending: false);
 
       setState(() {
         _notes = (data as List).map((json) => Note.fromJson(json)).toList();
       });
     } catch (e) {
+      debugPrint('Fetch error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
