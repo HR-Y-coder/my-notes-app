@@ -22,12 +22,23 @@ jobs:
         with:
           flutter-version: '3.19.0'
 
-      - name: Create Android Project Shell
+      - name: Reconstruct Project Shell
         run: |
-          # 1. 核心操作：如果缺失 android 目录，就地创建一个新项目
-          flutter create --project-name my_notes_app . --force
+          # 1. 备份你的代码和配置文件
+          mkdir backup_files
+          cp -r lib backup_files/
+          cp pubspec.yaml backup_files/
           
-          # 2. 注入联网权限 (这一步帮你自动改好 AndroidManifest)
+          # 2. 清理当前目录并重新生成完整的 Flutter 工程
+          rm -rf *
+          flutter create --project-name my_notes_app .
+          
+          # 3. 把你的代码还原回去
+          rm -rf lib
+          cp -r backup_files/lib .
+          cp backup_files/pubspec.yaml .
+          
+          # 4. 自动注入 Android 联网权限（解决 SocketException）
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
