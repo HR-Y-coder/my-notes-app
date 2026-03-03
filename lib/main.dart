@@ -102,10 +102,11 @@ class _NoteListScreenState extends State<NoteListScreen> {
 Future<void> _fetchNotes([String query = '']) async {
     setState(() => _isLoading = true);
     try {
+      // 核心修正：使用 filter 方式，这在所有 Supabase 版本中都最稳妥
       var request = supabase.from('notes').select();
       
-      // 使用这种通用的 filter 写法，避免调用不存在的 .or() 方法
       if (query.isNotEmpty) {
+        // 修复 "or" 方法不存在的问题
         request = request.filter('or', '(title.ilike.%$query%,content.ilike.%$query%)');
       }
 
