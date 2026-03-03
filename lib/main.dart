@@ -102,15 +102,17 @@ class _NoteListScreenState extends State<NoteListScreen> {
 Future<void> _fetchNotes([String query = '']) async {
     setState(() => _isLoading = true);
     try {
-      // 使用 select() 开始查询
-      var request = supabase.from('notes').select();
+      // 1. 先声明查询
+      final filterBuilder = supabase.from('notes').select();
       
-      // 这里的 filter 写法是所有 Supabase 版本都支持的“万能写法”
+      // 2. 如果有搜索词，直接调用 .or()
+      // 注意：这里不要用 .filter('or', ...)，直接用 .or()
       if (query.isNotEmpty) {
-        request = request.filter('or', '(title.ilike.%$query%,content.ilike.%$query%)');
+        filterBuilder.or('title.ilike.%$query%,content.ilike.%$query%');
       }
 
-      final data = await request.order('created_at', ascending: false);
+      // 3. 最后排序并获取数据
+      final data = await filterBuilder.order('created_at', ascending: false);
 
       setState(() {
         _notes = (data as List).map((json) => Note.fromJson(json)).toList();
