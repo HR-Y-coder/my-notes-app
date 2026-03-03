@@ -29,9 +29,9 @@ class Note {
     required this.createdAt,
   });
 
- factory Note.fromJson(Map<String, dynamic> json) {
+factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      // ?? '' 的意思就是：如果数据库拿回来的是空(Null)，就强行给它个空字符串，不准报错
+      // ?? '' 的意思：如果是 null 就给空字符串，绝不准报错！
       id: (json['id'] ?? '').toString(),
       title: (json['title'] ?? '无标题').toString(),
       content: (json['content'] ?? '').toString(),
