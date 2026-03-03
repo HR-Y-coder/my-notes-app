@@ -99,28 +99,25 @@ class _NoteListScreenState extends State<NoteListScreen> {
     super.dispose();
   }
 
- Future<void> _fetchNotes([String query = '']) async {
+Future<void> _fetchNotes([String query = '']) async {
     setState(() => _isLoading = true);
     try {
-      // 1. 先建立基础查询
       var request = supabase.from('notes').select();
       
-      // 2. 如果有搜索词，先进行 or 筛选
+      // 使用这种通用的 filter 写法，避免调用不存在的 .or() 方法
       if (query.isNotEmpty) {
-        request = request.or('title.ilike.%$query%,content.ilike.%$query%');
+        request = request.filter('or', '(title.ilike.%$query%,content.ilike.%$query%)');
       }
 
-      // 3. 最后再进行排序并执行请求 (注意：order 要放在最后)
       final data = await request.order('created_at', ascending: false);
 
       setState(() {
         _notes = (data as List).map((json) => Note.fromJson(json)).toList();
       });
     } catch (e) {
-      debugPrint('Error fetching notes: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading notes: $e')),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     } finally {
